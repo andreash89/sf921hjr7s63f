@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title> Veilys v0.21 </title>
+	
+	<script src="https://unpkg.com/d3"></script>
+	<script src="https://unpkg.com/d3-simple-slider"></script>
+	
+	<style>
+		#div_Map { 
+            height: 700px; 
+            width: 900px; 
+            border: 2px solid black;  
+        } 
+		#input_box { 
+            height: 650px; 
+            width: 500px; 
+            border: 2px solid black;  
+        } 
+		.numberentry {
+			position: absolute;
+			top:       650px;
+			left:      930px;
+			height:    20px;
+		}
+		.text_label {
+		  font-size: 12pt;
+		  fill: rgb(220,220,220);
+		}
+
+      div {
+        float: left;
+      }
+		body {background-color: rgb(40, 40, 40);}
+		h1   {color: rgb(220,220,220);}
+		h2   {color: grey;}
+		h3   {color: rgb(220,220,220);}
+		p    {color: rgb(220,220,220);}
+		p1    {color: rgb(220,220,220);}*/
+	</style>
+
+</head>
+<body>
+
+	<div id="div_Map">
+			
+	</div>
+	<h3>Relativ Rangering</h3>
+	<div id="input_box"></div>
+	  
+		
+	  <div class="row align-items-center">
+		<div class="col-sm"><div id="slider-color-picker"></div></div>
+		<div class="col-sm-2"><p id="value-color-picker"></p></div>
+	  </div>
+	</div id="div_01">
+	
+		<script type="text/javascript">
+			function generateRandomColor(){
+				let maxVal = 0xFFFFFF; // 16777215
+				let randomNumber = Math.random() * maxVal; 
+				randomNumber = Math.floor(randomNumber);
+				randomNumber = randomNumber.toString(16);
+				let randColor = randomNumber.padStart(6, 0);   
+				return `#${randColor.toUpperCase()}`
+			}
+
+			circleColor = "rgb(80,80,80)"
+			//circleColor = "rgb(40,40,40)"
+			circleHoverColor = "rgb(255,255,50)"
+			//circleColor = generateRandomColor();
+			circleWidth = 0
+			circleWidthSelect = 1
+			circleRadius = 2
+			roadWidth = 2
+			//roadColor = "rgb(50,50,50)"
+			roadColor = "rgb(0,0,120)"
+			//roadColor = "rgb(150,150,150)"
+			start_antall_stolper = 1413
+			//map_background_color = "rgb(0,20,100)"
+			map_background_color = "rgb(30,50,150)"
+			//map_background_color = "rgb(230,230,255)"
+			
+			var zoom_transform = {k: 1, x: 0, y: 0};
+			var zoom_scale_inverse = 1.0;
+			
+			w = 900
+			h = 700
+			
+			// ?????????
+			let btn = document.querySelector("div_Map");
+            var mapDiv = d3.select("div_Map");
+			
+			
+			const projection = d3.geoMercator()             
+						.scale(265*w / 2.5 / Math.PI)
+						.rotate([0, 0])
+						.center([19.5, 70.04])
+						.translate([w / 2, h / 2]);
+			
+			const path = d3.geoPath().projection(projection);
+
+
+			selectSvgMap = d3.select("#div_Map").append("svg:svg") .attr("id", "svg2")
+				.attr("width", w) .attr("height", h)
+				.style("background-color", map_background_color) .style("stroke", "#000000");
+
+			selectSvgMap.append("g").attr("class", "circles")
+			selectSvgMap.append("g").attr("class", "paths")
+			
+			//const dataRoadJson = d3.json("elveg2_FunkVegkl.geojson");
+			const dataRoadJson = d3.json("https://raw.githubusercontent.com/andreash89/sf921hjr7s63f/baa4848e2e66757fdfe5c768d6bb1e3d85d0b600/elveg2_FunkVegkl.geojson");
+			
+			const roadPath = dataRoadJson.then(function(data) {		
+				selectSvgMap.selectAll("path")
+					.data(data.features) .enter()
+					.append("path") .attr("class", "paths") .attr("d", path)
+					.attr("id", function(d, i) {
+					  return "country" + d.properties.gml_id;
+					})
+					//.attr("d", d3.geoPath().projection(projMerc))
+					//.attr("fill", "red")
+					.attr("fill", "none")
+					.style("stroke", roadColor)
+					.attr("stroke-width", roadWidth * zoom_scale_inverse)
+					.on("mouseover", function(){
+						let thisRoad = d3.select(this);
+						thisRoad .style("stroke", "green")
+						.attr("stroke-width", 2 * roadWidth * zoom_scale_inverse);} )
+					.on("mouseout", function(){ 
+						let thisRoad = d3.select(this);
+						thisRoad .style("stroke", roadColor)
+						.attr("stroke-width", roadWidth * zoom_scale_inverse);} )
+					.lower();
+			
+				})
+				.catch(function(error){
+				 // handle error   
+				})
+			
+			
+						
+			
+			//const dataCoordsCsv = d3.csv("new_poles_5593.csv");
+			const dataCoordsCsv = d3.csv("https://raw.githubusercontent.com/andreash89/sf921hjr7s63f/baa4848e2e66757fdfe5c768d6bb1e3d85d0b600/new_poles_5593.csv");
+			
+			//this promise returns an array with lattitude and longitude
+			var coords = dataCoordsCsv.then(function(value, j) {
+				return Promise.all(value.map(
+				function(d, i){
+					return {
+						idx: i,
+						coordinates: projection([+d.lon, +d.lat]), 
+						height: +d.height, 
+						col: parseInt(+d.build_weight4 * 254.5).toString(), 
+						Bygningsdata: +d.build_weight4 - 0.001, 
+						Stålstolper: +d.staal_stolpe - 0.001, 
+						Trestolper: +d.tre_stolpe - 0.001, 
+						Fiberkabler: (+d.fiber_kabel) / 2.0,
+						Strømkabler: (+d.TK_kabel) / 3.0,
+						Halogen: +d.halogen - 0.0005, 
+						LED: +d.LED - 0.0005, 
+						Med_Råte: +d.uten_raate * (-1) + 0.9999,   // verdi=1 betyr at det er ikke råte
+						Eksisterende: +d.is_real - 0.001, 
+						Genererte: +d.is_generated - 0.001, 
+						Vegklasse: +d.vegklasse,
+						road_id: d.road_id - 0.001,
+						total_weight: 4.0
+					}
+				}
+				))});
+			
+			/*
+			var colors = [
+				'rgb(70, 240, 0)', 'rgb(180, 120, 0)', 'rgb(140, 140, 170)',
+				'rgb(200, 130, 0)', 'rgb(100, 150, 255)', 'rgb(200, 50, 50)', 
+				'rgb(180, 50, 250)', 'rgb(100, 190, 255)', 'rgb(200, 200, 50)',
+				'rgb(245, 50, 245)', 'rgb(0, 180, 180)'];
+			*/	
+			var colors = [
+				'rgb(70, 240, 0)', 'rgb(180, 120, 0)', 'rgb(170, 170, 190)',
+				'rgb(200, 180, 0)', 'rgb(100, 150, 255)', 'rgb(200, 50, 50)', 
+				'rgb(180, 50, 250)', 'rgb(100, 190, 255)', 'rgb(250, 250, 50)',
+				'rgb(245, 50, 245)', 'rgb(0, 180, 180)'];
+				
+				
+			/*var colors = 	// https://colorbrewer2.org/#type=qualitative&scheme=Set3&n=12
+				['rgb(141,211,199)','rgb(255,255,179)','rgb(190,186,218)',
+				'rgb(251,128,114)','rgb(128,177,211)','rgb(253,180,98)',
+				'rgb(179,222,105)','rgb(252,205,229)','rgb(217,217,217)',
+				'rgb(188,128,189)','rgb(204,235,197)','rgb(255,237,111)'];*/
+		  
+			var MultiMin = [0,0,0,0,0,-2,0,0,0,0,0,0,0,0,0]
+			var MultiMax = [10,2,2,2,2,2,2,2,2,2,2,2,2,2,2]
+			var Multi = {
+				Bygningsdata: 1.0, Trestolper: 1.0, Stålstolper: 1.0, 
+				"Halogen": 1.0, "LED": 1.0, "Med_Råte": 1.0,
+				Eksisterende: 1.0, Genererte: 1.0, Strømkabler: 1.0, 
+				Fiberkabler: 1.0, Vegklasse: 1.0}
+			
+			var circleWeights;			
+			function updateCircleWeights() {
+				circleWeights = coords.then(function(data, j) {
+					circleWeights = data.map(function(d) {
+						var total_wgt = 
+						Multi["Bygningsdata"]  * d.Bygningsdata
+						+ Multi["Trestolper"] * d.Trestolper
+						+ Multi["Stålstolper"] * d.Stålstolper
+						+ Multi["Halogen"] * d.Halogen
+						+ Multi["LED"] * d.LED
+						+ Multi["Med_Råte"] * d.Med_Råte
+						+ Multi["Eksisterende"] * d.Eksisterende
+						+ Multi["Genererte"] * d.Genererte
+						+ Multi["Strømkabler"] * d.Strømkabler
+						+ Multi["Fiberkabler"] * d.Fiberkabler
+						+ Multi["Vegklasse"] * d.Vegklasse
+						return total_wgt;
+					});
+				})
+			}
+			
+						
+			
+			var pointCircles;
+			function updateCircles(max_num_circles, idx, name_id) {
+			
+				pointCircles = coords.then(function(data, j) {
+					var sortedData = d3.sort(data, (a, b) => d3.descending(circleWeights[a.idx], circleWeights[b.idx]));
+					
+					selectSvgMap.selectAll("circle")
+						.data(sortedData)
+						//.sort(function(a, b) { return b.Bygningsdata - a.Bygningsdata })
+						.enter()
+						.filter(function(d,i){ return i < max_num_circles; })
+						//.attr("total_weight", function(d, i){  return circleWeights[i];} )
+						//.filter(function(d, i){  return circleWeights[i] > 2.0  ;})
+						//.filter(function(d, i){  return d.fiber_kabel > 0  ;})
+						//.filter(function(d, i){  return d.weight_4 > 6  ;})
+						.append("circle") .attr("class","circles")
+						.attr("id", function(d, i){return j;})
+						.attr("stolpe", function(d){
+							return [d.Bygningsdata, d.Trestolper, d.Stålstolper, d.Halogen, d.LED, 
+								d.Med_Råte, d.Eksisterende, d.Genererte, d.Strømkabler, d.Fiberkabler, d.Vegklasse];} )
+						.attr("r", circleRadius * zoom_scale_inverse)
+						.attr("Bygningsdata", function(d){ return d.Bygningsdata;} )
+						.attr("Trestolper", function(d){ return d.Trestolper;} )
+						.attr("Stålstolper", function(d){ return d.Stålstolper;} )
+						.attr("Halogen", function(d){ return d.Halogen;} )
+						.attr("LED", function(d){ return d.LED;} )
+						.attr("Med_Råte", function(d){ return d.Med_Råte;} )
+						.attr("Eksisterende", function(d){ return d.Eksisterende;} )
+						.attr("Genererte", function(d){ return d.Genererte;} )
+						.attr("Strømkabler", function(d){ return d.Strømkabler;} )
+						.attr("Fiberkabler", function(d){ return d.Fiberkabler;} )
+						.attr("Vegklasse", function(d){ return d.Vegklasse;} )
+						.attr("stroke-width", circleWidth).style("stroke", "black")
+						.attr("z-index", -1)
+						.attr("color", circleColor)
+						//.attr("color", function(d){ return "rgb("+d.col+","+d.col+","+ d.col+")";} )
+						.style("fill", function(d){return d3.select(this).attr("color");} )
+						
+						
+					
+						
+						
+						.attr("cx", function(d){return d.coordinates[0];} )
+						.attr("cy", function(d){return d.coordinates[1];} )
+						.attr('transform', zoom_transform)
+						.on("mouseout", function(){ 
+							let thisCircle = d3.select(this);
+							thisCircle
+							.attr("r", circleRadius * zoom_scale_inverse)
+							.style("fill", thisCircle.attr("color") );})
+						.on("click", function(){d3.select(this).style("fill", "yellow" );})
+						.on("mouseover", function(){d3.select(this)
+							.attr("r", circleRadius * 2 * zoom_scale_inverse)
+							.style("fill", circleHoverColor)
+							.raise();;} )
+						
+						.filter(function(d,i){
+							return d3.select(this).attr(name_id) > 0.001; })
+						.style("fill", function(d,i){ 
+							var m = 1.0;
+							var col = colors[idx];
+							//if (name_id === "Bygningsdata") {
+								arr = colors[idx].substring(4, colors[idx].length-1).replace(/ /g, '').split(',');
+								m = +d3.select(this).attr(name_id) * 0.8 + 0.3;
+								col = "rgb("+ parseInt(arr[0]*m) +","+ parseInt(arr[1]*m) +","+ parseInt(arr[2]*m) +")";
+								console.log(arr[1]);
+								m = m * 2.0 + 1.0;
+							//}
+							return col; })
+							
+						.attr("stroke-width", function(d,i){ 
+							if (zoom_scale_inverse < 0.2) {
+								return circleWidthSelect * zoom_scale_inverse;
+							}
+						
+							return 0.0; })
+						.style("stroke", "white")
+						.attr("r", function(d,i){ 
+							//var m = 1.5;
+							var m = +d3.select(this).attr(name_id) * 1.0 + 0.4;
+							if (name_id === "Bygningsdata") {
+								//arr = d3.select(this).attr("stolpe");
+								m = +d3.select(this).attr("Bygningsdata") * 1.7 + 1;
+								//m = +arr[idx] * 1.5 + 1.0;
+							}
+							return m * circleRadius * zoom_scale_inverse; })
+						.raise();
+						
+				})
+				.catch(function(error){
+				 // handle error   
+					console.log(error);
+				})
+				
+			}
+			
+			
+			function changeColor(idx, name_id) {
+				
+				selectSvgMap.selectAll("circle")
+					.filter(function(d,i){
+						return d3.select(this).attr(name_id) > 0.001; })
+					.style("fill", function(d,i){ 
+						var m = 1.0;
+						var col = colors[idx];
+						//if (name_id === "Bygningsdata") {
+							arr = colors[idx].substring(4, colors[idx].length-1).replace(/ /g, '').split(',');
+							m = +d3.select(this).attr(name_id) * 0.8 + 0.3;
+							col = "rgb("+ parseInt(arr[0]*m) +","+ parseInt(arr[1]*m) +","+ parseInt(arr[2]*m) +")";
+							console.log(arr[1]);
+							m = m * 2.0 + 1.0;
+						//}
+						return col; })
+					
+					.attr("stroke-width", circleWidthSelect * zoom_scale_inverse).style("stroke", "white")
+					.attr("r", function(d,i){ 
+						//var m = 1.5;
+						var m = +d3.select(this).attr(name_id) * 1.0 + 0.3;
+						if (name_id === "Bygningsdata") {
+							//arr = d3.select(this).attr("stolpe");
+							m = +d3.select(this).attr("Bygningsdata") * 1.7 + 1;
+							//m = +arr[idx] * 1.5 + 1.0;
+						}
+						return m * circleRadius * zoom_scale_inverse; })
+					.raise();
+						
+			}
+			
+			
+			var input_text_box2 = d3.select('div#input_box')
+				.append('input')
+				.attr('type','number')
+				.attr('name','textInput2')
+				//.style('left', 1000)
+				.attr('class', "numberentry")
+				.attr('height', 6)
+				.attr('value', start_antall_stolper)
+				.attr('transform', 'translate(20,40)');
+					
+			updateCircleWeights();
+			updateCircles(input_text_box2.property("value"));
+
+			function removeCircles() {
+				selectSvgMap.selectAll("circle").remove();
+			}
+			
+			
+			const pointCirclesZoom = roadPath
+				.then(function(data2) {	
+					selectSvgMap.call(zoom);
+				})
+				.catch(function(error){
+				 // handle error   
+				})
+				
+			var zoom = d3.zoom()
+				.scaleExtent([1, 40])
+				.translateExtent([[0, 0], [w, h]])
+				.on('zoom', function(e) {
+					zoom_transform = e.transform;
+					zoom_scale_inverse = 1.0 / e.transform.k;
+					selectSvgMap.selectAll("path")
+						.attr('transform', e.transform)
+						.attr("stroke-width", roadWidth * zoom_scale_inverse)
+						.style("stroke", roadColor)
+						.lower();
+					selectSvgMap.selectAll("circle")
+						.attr('transform', e.transform)
+						.attr("r", circleRadius * zoom_scale_inverse)
+						.style("fill", function(d){return d3.select(this).attr("color");} )
+						.attr("stroke-width", circleWidth * zoom_scale_inverse)
+						.raise();
+				});
+			
+			
+			function changeSize(sz) {
+				selectSvgMap.selectAll("circle")
+				.attr("r", sz);
+			}
+			
+		</script>
+	</div>
+	
+
+	<div id="div_02">
+			
+		<script type="text/javascript">
+		
+			  var num2hex = rgb => {
+				return rgb
+				  .map(color => {
+					let str = color.toString(16);
+
+					if (str.length === 1) {
+					  str = '0' + str;
+					}
+
+					return str;
+				  })
+				  .join('');
+			  };
+
+				var gRankingSlider = d3
+					.select('div#input_box')
+					.append('svg')
+					.attr('width', 500)
+					.attr('height', h)
+					.append('g')
+					.attr('transform', 'translate(00,30)');
+					
+					
+				var info_text_pos = [20, 520, 140, 40]
+				var info_text = gRankingSlider.append("svg:text")
+					.attr("class", "text_label")
+					.attr('transform', "translate("+(info_text_pos[0])+","+(info_text_pos[1])+")")
+					.text("Verdiene multipliseres med hver stolpe sin egen verdi, summeres deretter.");
+					//.attr("fill",  "lightgrey")
+				var info_text2 = gRankingSlider.append("svg:text")
+					.attr("class", "text_label")
+					.attr('transform', "translate("+(info_text_pos[0])+","+(30 +info_text_pos[1])+")")
+					.text("Sett Antall stolper:");
+					//.attr("fill",  "lightgrey")
+					
+			/*	
+				// Apply Ranking button
+				var button_trans = [200, 550, 140, 40]
+				var rect_button_color = gRankingSlider.append('rect').attr('width', button_trans[2]).attr('height', button_trans[3])
+					.attr('fill', "green")
+					.attr('transform', "translate("+(button_trans[0])+","+button_trans[1]+")");
+					
+				var rect_button_text = gRankingSlider.append("text").attr("class","label")
+					.attr('transform', "translate("+(20+button_trans[0])+","+(25+button_trans[1])+")")
+					.text("Sett Rangering") .attr("id", "apply_button") .attr("fill",  "white");
+					//.text("Apply Ranking") .attr("id", "apply_button") .attr("fill",  "white");
+					
+				var rect_button_click = gRankingSlider.append('rect').attr('width', button_trans[2]).attr('height', button_trans[3])
+					.attr('opacity', "0.0")
+					.attr('transform', "translate("+(button_trans[0])+","+button_trans[1]+")")
+					.on("mouseover", function(){ rect_button_color.style("fill", 'rgb(50, 180, 50)');} )
+					.on("mouseout", function(){ rect_button_color.style("fill", "green");} );
+
+				rect_button_click
+					.on('mousedown', function() {
+						rect_button_color.style("fill", 'rgb(0, 70, 0)');
+						updateCircleWeights();
+						removeCircles();
+						updateCircles(input_text_box2.property("value"));
+						console.log('Applied ranking clicked');
+					})
+					.on("mouseup", function() {
+						rect_button_color.style("fill", "green");
+					});
+			*/
+
+			  Object.entries(Multi).forEach((multiplier, i) => {
+			  
+				var slider = d3.sliderBottom().min(MultiMin[i]).max(MultiMax[i]).step(0.01).width(200).default(multiplier[1])
+				  .displayValue(false)
+				  .fill(colors[i])
+				  .tickPadding(-10)
+				  //.domain([0,2])
+				  .on('onchange', num => {
+					//rgb[i] = num;
+					Multi[multiplier[0]] = num;
+					multiplier[1] = num;
+					//changeColor(i, multiplier[0]);
+					//changeSize(i);
+					//d3.select(gRankingSlider.nodes()[i]).text("test");d3.selectAll("text[attrName=attrValue]");
+					//gRankingSlider.selectAll("text[attrName=attrValue]").filter(function(d, j){ return j === i;})
+					gRankingSlider.selectAll("text[id=" + multiplier[0].toString() +"]").text(multiplier[0].toString()+": " + Multi[multiplier[0]].toFixed(2));
+								//.text(multiplier[0].toString()+": " + Multi[i].toFixed(2));
+					d3.select('p#value-color-picker').text(multiplier[0].toString()+": " + Multi[multiplier[0]].toFixed(2)).attr("fill",  colors[i]);
+					
+					updateCircleWeights();
+					removeCircles();
+					updateCircles(input_text_box2.property("value"), i, multiplier[0]);
+
+					
+				  })
+				  .on('end', num => {
+					changeColor(i, multiplier[0]);
+				  });
+
+				gRankingSlider
+					.append('g')
+					.attr("id", i)
+					.attr('transform', `translate(250,${5 + 45 * i})`)
+					.append("text")
+					.attr("class","label")
+					.text(multiplier[0].toString()+": " + multiplier[1].toFixed(2))
+					.attr("id", multiplier[0].toString())
+					.attr("fill",  colors[i]);
+
+					
+				gRankingSlider
+				  .append('g')
+				  .attr('transform', `translate(20,${45 * i})`)
+				  .call(slider);
+				  
+			  });
+			  
+			  d3.select('p#value-color-picker').text(Multi['Bygningsdata'].toFixed(2));
+
+		</script>
+	</div>
+
+
+</body>
+</html>
